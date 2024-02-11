@@ -1,0 +1,12 @@
+[Unit]
+Description=virtiofsd filesystem share at {{.SharePath}} for VM {{.VmId}}
+StopWhenUnneeded=true
+
+[Service]
+Type=simple
+RuntimeDirectory=virtiofsd
+PIDFile=/run/virtiofsd/.run.virtiofsd.{{.VmId}}-{{.ShareName}}.sock.pid
+ExecStart=/usr/libexec/virtiofsd --log-level {{.LogLevel}} --socket-path /run/virtiofsd/{{.VmId}}-{{.ShareName}}.sock --shared-dir {{.SharePath}} --cache=auto --announce-submounts --inode-file-handles=mandatory {{.ExtraArgs}}
+
+[Install]
+RequiredBy={{.VmId}}.scope
