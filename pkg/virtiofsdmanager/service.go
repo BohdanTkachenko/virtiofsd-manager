@@ -31,12 +31,12 @@ func getServiceName(sharePath string, vmId int) string {
 	return fmt.Sprintf("virtiofsd-%d-%s.service", vmId, getShareNameFromPath(sharePath))
 }
 
-func ListServices(ShareName string, vmId int) ([]string, error) {
+func ListServices(shareName string, vmId int) ([]string, error) {
 	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
 	if err != nil {
 		return nil, err
 	}
-	pattern := fmt.Sprintf("virtiofsd-%d-%s.service", vmId, ShareName)
+	pattern := fmt.Sprintf("virtiofsd-%d-%s.service", vmId, shareName)
 	units, err := systemd.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{pattern})
 	if err != nil {
 		return nil, err
@@ -102,17 +102,11 @@ func Uninstall(sharePath string, vmId int) error {
 	if err != nil {
 		return err
 	}
-	unitPaths, err := ListServices(getShareNameFromPath(sharePath), vmId)
+	unitPaths, err := DisableAndStop(sharePath, vmId)
 	if err != nil {
 		return err
 	}
 	for _, unitPath := range unitPaths {
-		if _, err = systemd.StopUnitContext(context.TODO(), unitPath, "replace", nil); err != nil {
-			return err
-		}
-		if _, err := systemd.DisableUnitFilesContext(context.TODO(), []string{unitPath}, false); err != nil {
-			return err
-		}
 		if err := os.Remove(unitPath); err != nil {
 			return err
 		}
@@ -123,4 +117,40 @@ func Uninstall(sharePath string, vmId int) error {
 	return nil
 }
 
-func ListShares(vmId int) {}
+func EnableAndStart(sharePath string, vmId int) ([]string, error) {
+	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	unitPaths, err := ListServices(sharePath, vmId)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, err := systemd.EnableUnitFilesContext(context.TODO(), unitPaths, true, false); err != nil {
+		return nil, err
+	}
+	return unitPaths, nil
+}
+
+func DisableAndStop(sharePath string, vmId int) ([]string, error) {
+	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	unitPaths, err := ListServices(sharePath, vmId)
+	if err != nil {
+		return nil, err
+	}
+	units := []string{}
+	for _, unitPath := range unitPaths {
+		unitName := filepath.Base(unitPath)
+		if _, err = systemd.StopUnitContext(context.TODO(), unitName, "replace", nil); err != nil {
+			return nil, err
+		}
+		units = append(units, unitName)
+	}
+	if _, err := systemd.DisableUnitFilesContext(context.TODO(), units, true); err != nil {
+		return nil, err
+	}
+	return unitPaths, nil
+}

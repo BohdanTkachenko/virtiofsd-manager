@@ -16,8 +16,8 @@ func getVmShares(vmId int) ([]string, error) {
 		return nil, err
 	}
 	shares := []string{}
-	for _, servicePath := range services {
-		unitName := strings.TrimSuffix(filepath.Base(servicePath), ".service")
+	for _, unitPath := range services {
+		unitName := strings.TrimSuffix(filepath.Base(unitPath), ".service")
 		shares = append(shares, getShareNameFromUnitName(unitName, vmId))
 	}
 	return shares, nil

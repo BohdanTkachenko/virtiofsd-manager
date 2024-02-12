@@ -10,6 +10,8 @@ import (
 type Options struct {
 	Install    InstallCmd    `command:"install"      description:"Create a Systemd service file and install it."`
 	Uninstall  UninstallCmd  `command:"uninstall"    description:"Uninstall Systemd service."`
+	Enable     EnableCmd     `command:"enable"       description:"Enables and starts all virtiofsd Systemd services for VM"`
+	Disable    DisableCmd    `command:"disable"      description:"Stops and disables all virtiofsd Systemd services for VM"`
 	GetVfsArgs GetVfsArgsCmd `command:"get-vfs-args" description:"Generate VFS args string for QEMU."`
 }
 
