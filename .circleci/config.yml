@@ -38,8 +38,8 @@ workflows:
             tags:
               only: /^v\d+\.\d+\.\d+$/
       - gor/release:
-          version: 1.7.0
-          go-version: '1.18'
+          version: 1.24.0
+          go-version: '1.21'
           filters:
             branches:
               ignore: /.*/
