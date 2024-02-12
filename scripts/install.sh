@@ -24,13 +24,13 @@ esac
 # Determine the package manager and system architecture
 if command -v apt >/dev/null 2>&1; then
   PKG_FORMAT="deb"
-  INSTALL_CMD="sudo apt install ./"
+  INSTALL_CMD="sudo apt install"
 elif command -v dnf >/dev/null 2>&1; then
   PKG_FORMAT="rpm"
-  INSTALL_CMD="sudo dnf install ./"
+  INSTALL_CMD="sudo dnf install"
 elif command -v yum >/dev/null 2>&1; then
   PKG_FORMAT="rpm"
-  INSTALL_CMD="sudo yum install ./"
+  INSTALL_CMD="sudo yum install"
 elif command -v pacman >/dev/null 2>&1; then
   PKG_FORMAT="pkg.tar.zst"
   INSTALL_CMD="sudo pacman -U"
@@ -67,7 +67,7 @@ CHECKSUM_OK=$(curl -L "$CHECKSUM_FILE_URL" \
 if [[ $CHECKSUM_OK == *": OK"* ]]; then
   echo "Checksum verification passed."
   echo "Installing $PACKAGE_NAME..."
-  $INSTALL_CMD "$PACKAGE_NAME" && \
+  $INSTALL_CMD "$TEMP_PACKAGE_PATH" && \
     echo "Cleaning up..." && \
     rm "$TEMP_PACKAGE_PATH"
 else
