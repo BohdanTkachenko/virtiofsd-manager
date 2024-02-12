@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 1
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    main: ./cmd/virtiofsd-manager
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+nfpms:
+  - id: virtiofsd-manager
+    package_name: virtiofsd-manager
+    vendor: Bohdan Tkachenko
+    homepage: https://github.com/BohdanTkachenko/virtiofsd-manager
+    maintainer: Bohdan Tkachenko <bohdan@tkachenko.io>
+    description: |-
+      Easily manage and automate virtiofsd file sharing with systemd
+      integration for seamless VM access.
+    license: Apache 2.0
+    formats:
+      - deb
+    dependencies:
+      - systemd
+    recommends:
+      - virtiofsd
+      - qemu-server
+    bindir: /usr/sbin
+
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
