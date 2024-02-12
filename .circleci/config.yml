@@ -1,0 +1,47 @@
+version: 2.1
+orbs:
+  gor: hubci/goreleaser@2.0
+jobs:
+  test:
+    docker:
+      - image: cimg/go:1.20
+    steps:
+      - checkout
+      - restore_cache:
+          key: go-mod-{{ checksum "go.sum" }}
+      - run:
+          name: Download Go modules
+          command: go mod download
+      - save_cache:
+          key: go-mod-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/go/pkg/mod
+      - run:
+          name: Run tests
+          command: gotestsum --junitfile junit.xml
+      - store_test_results:
+          path: junit.xml
+workflows:
+  main-wf:
+    jobs:
+      - test
+      - gor/release:
+          version: 1.7.0
+          go-version: '1.18'
+          dry-run: true
+  release-wf:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
+      - gor/release:
+          version: 1.7.0
+          go-version: '1.18'
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
