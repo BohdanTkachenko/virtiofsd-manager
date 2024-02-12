@@ -28,15 +28,6 @@ workflows:
       - gor/release:
           version: 1.24.0
           go-version: '1.21.7'
-          dry-run: true
           filters:
-            tags:
-              ignore: /^v\d+\.\d+\.\d+$/
-      - gor/release:
-          version: 1.24.0
-          go-version: '1.21.7'
-          filters:
-            branches:
-              ignore: /.*/
             tags:
               only: /^v\d+\.\d+\.\d+$/
