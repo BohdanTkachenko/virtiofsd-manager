@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  gor: hubci/goreleaser@2.0
+  gor: hubci/goreleaser@2.4.0
 jobs:
   test:
     docker:
