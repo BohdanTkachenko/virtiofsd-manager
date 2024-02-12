@@ -22,14 +22,14 @@ jobs:
       - store_test_results:
           path: junit.xml
 workflows:
-  main-wf:
+  main:
     jobs:
       - test
       - gor/release:
           version: 1.24.0
           go-version: '1.21.7'
           dry-run: true
-  release-wf:
+  release:
     jobs:
       - test:
           filters:
