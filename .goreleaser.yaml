@@ -36,6 +36,8 @@ nfpms:
     license: Apache 2.0
     formats:
       - deb
+      - rpm
+      - archlinux
     dependencies:
       - systemd
     recommends:
