@@ -29,7 +29,7 @@ Note: Always review scripts before running them for security purposes.
 
 ### Manually
 
-1. Navigate to the [latest release](https://github.com/BohdanTkachenko/virtiofsd-manager/releases/tag/latest) page
+1. Navigate to the [latest release](https://github.com/BohdanTkachenko/virtiofsd-manager/releases/latest) page
 2. Select and download the package suitable for your operating system and architecture.
 3. Install the downloaded package using your system's package manager, or unpack the archive if you prefer a more hands-on approach.
 
