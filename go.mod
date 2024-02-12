@@ -1,6 +1,6 @@
 module github.com/BohdanTkachenko/virtiofsd-manager
 
-go 1.21.1
+go 1.21
 
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
