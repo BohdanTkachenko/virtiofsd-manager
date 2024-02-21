@@ -134,6 +134,16 @@ func (s *ServiceManager) EnableAndStart(sharePath string, vmId int) ([]string, e
 		return nil, err
 	}
 
+	for _, unitPath := range unitPaths {
+		serviceName := filepath.Base(unitPath)
+		startChan := make(chan string)
+		s.conn.StartUnitContext(context.TODO(), serviceName, "replace", startChan)
+		msg := <-startChan
+		if msg != "done" {
+			return nil, fmt.Errorf("cannot start '%s' (status: %q)", serviceName, msg)
+		}
+	}
+
 	return unitPaths, nil
 }
 
