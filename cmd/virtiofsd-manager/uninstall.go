@@ -10,9 +10,13 @@ type UninstallCmd struct {
 }
 
 func (cmd *UninstallCmd) Execute(args []string) error {
+	s, err := virtiofsdmanager.CreateServiceManager()
+	if err != nil {
+		return err
+	}
 	sharePath := "*"
 	if cmd.SharePath != "" {
 		sharePath = cmd.SharePath
 	}
-	return virtiofsdmanager.Uninstall(sharePath, cmd.VmId)
+	return s.Uninstall(sharePath, cmd.VmId)
 }

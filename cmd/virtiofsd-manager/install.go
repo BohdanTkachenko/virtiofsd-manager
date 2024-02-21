@@ -15,7 +15,11 @@ type InstallCmd struct {
 }
 
 func (cmd *InstallCmd) Execute(args []string) error {
-	serviceName, err := virtiofsdmanager.Install(cmd.SharePath, cmd.VmId, cmd.LogLevel, cmd.ExtraArgs, cmd.ForceOverwrite)
+	s, err := virtiofsdmanager.CreateServiceManager()
+	if err != nil {
+		return err
+	}
+	serviceName, err := s.Install(cmd.SharePath, cmd.VmId, cmd.LogLevel, cmd.ExtraArgs, cmd.ForceOverwrite)
 	if err != nil {
 		return err
 	}

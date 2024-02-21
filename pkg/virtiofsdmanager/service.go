@@ -31,13 +31,24 @@ func getServiceName(sharePath string, vmId int) string {
 	return fmt.Sprintf("virtiofsd-%d-%s.service", vmId, getShareNameFromPath(sharePath))
 }
 
-func ListServices(shareName string, vmId int) ([]string, error) {
-	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
+type ServiceManager struct {
+	conn *dbus.Conn
+}
+
+func CreateServiceManager() (*ServiceManager, error) {
+	conn, err := dbus.NewSystemdConnectionContext(context.TODO())
 	if err != nil {
 		return nil, err
 	}
+
+	return &ServiceManager{
+		conn: conn,
+	}, nil
+}
+
+func (s *ServiceManager) ListServices(shareName string, vmId int) ([]string, error) {
 	pattern := fmt.Sprintf("virtiofsd-%d-%s.service", vmId, shareName)
-	units, err := systemd.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{pattern})
+	units, err := s.conn.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{pattern})
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +59,7 @@ func ListServices(shareName string, vmId int) ([]string, error) {
 	return unitPaths, nil
 }
 
-func Install(sharePath string, vmId int, logLevel string, extraArgs string, forceOverwrite bool) (string, error) {
+func (s *ServiceManager) Install(sharePath string, vmId int, logLevel string, extraArgs string, forceOverwrite bool) (string, error) {
 	if _, err := os.Stat(sharePath); err != nil {
 		return "", err
 	}
@@ -85,24 +96,15 @@ func Install(sharePath string, vmId int, logLevel string, extraArgs string, forc
 		return "", err
 	}
 
-	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
-	if err != nil {
-		return "", err
-	}
-
-	if err = systemd.ReloadContext(context.TODO()); err != nil {
+	if err = s.conn.ReloadContext(context.TODO()); err != nil {
 		return "", err
 	}
 
 	return serviceName, nil
 }
 
-func Uninstall(sharePath string, vmId int) error {
-	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
-	if err != nil {
-		return err
-	}
-	unitPaths, err := DisableAndStop(sharePath, vmId)
+func (s *ServiceManager) Uninstall(sharePath string, vmId int) error {
+	unitPaths, err := s.DisableAndStop(sharePath, vmId)
 	if err != nil {
 		return err
 	}
@@ -111,45 +113,37 @@ func Uninstall(sharePath string, vmId int) error {
 			return err
 		}
 	}
-	if err = systemd.ReloadContext(context.TODO()); err != nil {
+	if err = s.conn.ReloadContext(context.TODO()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func EnableAndStart(sharePath string, vmId int) ([]string, error) {
-	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
+func (s *ServiceManager) EnableAndStart(sharePath string, vmId int) ([]string, error) {
+	unitPaths, err := s.ListServices(sharePath, vmId)
 	if err != nil {
 		return nil, err
 	}
-	unitPaths, err := ListServices(sharePath, vmId)
-	if err != nil {
-		return nil, err
-	}
-	if _, _, err := systemd.EnableUnitFilesContext(context.TODO(), unitPaths, true, false); err != nil {
+	if _, _, err := s.conn.EnableUnitFilesContext(context.TODO(), unitPaths, true, false); err != nil {
 		return nil, err
 	}
 	return unitPaths, nil
 }
 
-func DisableAndStop(sharePath string, vmId int) ([]string, error) {
-	systemd, err := dbus.NewSystemdConnectionContext(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	unitPaths, err := ListServices(sharePath, vmId)
+func (s *ServiceManager) DisableAndStop(sharePath string, vmId int) ([]string, error) {
+	unitPaths, err := s.ListServices(sharePath, vmId)
 	if err != nil {
 		return nil, err
 	}
 	units := []string{}
 	for _, unitPath := range unitPaths {
 		unitName := filepath.Base(unitPath)
-		if _, err = systemd.StopUnitContext(context.TODO(), unitName, "replace", nil); err != nil {
+		if _, err = s.conn.StopUnitContext(context.TODO(), unitName, "replace", nil); err != nil {
 			return nil, err
 		}
 		units = append(units, unitName)
 	}
-	if _, err := systemd.DisableUnitFilesContext(context.TODO(), units, true); err != nil {
+	if _, err := s.conn.DisableUnitFilesContext(context.TODO(), units, true); err != nil {
 		return nil, err
 	}
 	return unitPaths, nil

@@ -9,7 +9,11 @@ type EnableCmd struct {
 }
 
 func (cmd *EnableCmd) Execute(args []string) error {
-	if _, err := virtiofsdmanager.EnableAndStart("*", cmd.VmId); err != nil {
+	s, err := virtiofsdmanager.CreateServiceManager()
+	if err != nil {
+		return err
+	}
+	if _, err := s.EnableAndStart("*", cmd.VmId); err != nil {
 		return err
 	}
 	return nil

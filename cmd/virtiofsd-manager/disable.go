@@ -9,7 +9,11 @@ type DisableCmd struct {
 }
 
 func (cmd *DisableCmd) Execute(args []string) error {
-	if _, err := virtiofsdmanager.DisableAndStop("*", cmd.VmId); err != nil {
+	s, err := virtiofsdmanager.CreateServiceManager()
+	if err != nil {
+		return err
+	}
+	if _, err := s.DisableAndStop("*", cmd.VmId); err != nil {
 		return err
 	}
 	return nil

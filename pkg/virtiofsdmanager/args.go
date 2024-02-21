@@ -11,7 +11,11 @@ func getShareNameFromUnitName(unitName string, vmId int) string {
 }
 
 func getVmShares(vmId int) ([]string, error) {
-	services, err := ListServices("*", vmId)
+	s, err := CreateServiceManager()
+	if err != nil {
+		return nil, err
+	}
+	services, err := s.ListServices("*", vmId)
 	if err != nil {
 		return nil, err
 	}
