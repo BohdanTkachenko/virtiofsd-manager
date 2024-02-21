@@ -46,9 +46,10 @@ func CreateServiceManager() (*ServiceManager, error) {
 	}, nil
 }
 
-func (s *ServiceManager) ListServices(shareName string, vmId int) ([]string, error) {
-	pattern := fmt.Sprintf("virtiofsd-%d-%s.service", vmId, shareName)
-	units, err := s.conn.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{pattern})
+func (s *ServiceManager) ListServices(sharePath string, vmId int) ([]string, error) {
+	units, err := s.conn.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{
+		getServiceName(sharePath, vmId),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +125,15 @@ func (s *ServiceManager) EnableAndStart(sharePath string, vmId int) ([]string, e
 	if err != nil {
 		return nil, err
 	}
+
+	if len(unitPaths) == 0 {
+		return nil, fmt.Errorf("no services found matching '%s'", getServiceName(sharePath, vmId))
+	}
+
 	if _, _, err := s.conn.EnableUnitFilesContext(context.TODO(), unitPaths, true, false); err != nil {
 		return nil, err
 	}
+
 	return unitPaths, nil
 }
 
@@ -135,6 +142,11 @@ func (s *ServiceManager) DisableAndStop(sharePath string, vmId int) ([]string, e
 	if err != nil {
 		return nil, err
 	}
+
+	if len(unitPaths) == 0 {
+		return nil, fmt.Errorf("no services found matching '%s'", getServiceName(sharePath, vmId))
+	}
+
 	units := []string{}
 	for _, unitPath := range unitPaths {
 		unitName := filepath.Base(unitPath)
