@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/charmbracelet/log"
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
@@ -32,35 +33,52 @@ func getServiceName(sharePath string, vmId int) string {
 }
 
 type ServiceManager struct {
-	conn *dbus.Conn
+	logger *log.Logger
+	conn   *dbus.Conn
 }
 
-func CreateServiceManager() (*ServiceManager, error) {
+func CreateServiceManager(verbose bool) (*ServiceManager, error) {
 	conn, err := dbus.NewSystemdConnectionContext(context.TODO())
 	if err != nil {
 		return nil, err
 	}
 
+	logger := log.NewWithOptions(os.Stderr, log.Options{
+		Level: log.InfoLevel,
+	})
+	if verbose {
+		logger.SetLevel(log.DebugLevel)
+	}
+
 	return &ServiceManager{
-		conn: conn,
+		logger: logger,
+		conn:   conn,
 	}, nil
 }
 
 func (s *ServiceManager) ListServices(sharePath string, vmId int) ([]string, error) {
-	units, err := s.conn.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{
-		getServiceName(sharePath, vmId),
-	})
+	serviceName := getServiceName(sharePath, vmId)
+	s.logger.Info("Listing services", serviceName)
+
+	services, err := s.conn.ListUnitFilesByPatternsContext(context.TODO(), []string{}, []string{serviceName})
 	if err != nil {
 		return nil, err
 	}
-	unitPaths := []string{}
-	for _, unit := range units {
-		unitPaths = append(unitPaths, unit.Path)
+
+	servicePaths := []string{}
+	for _, service := range services {
+		servicePaths = append(servicePaths, service.Path)
 	}
-	return unitPaths, nil
+
+	s.logger.Debug("Found matching services", services, servicePaths)
+	return servicePaths, nil
 }
 
 func (s *ServiceManager) Install(sharePath string, vmId int, logLevel string, extraArgs string, forceOverwrite bool) (string, error) {
+	serviceName := getServiceName(sharePath, vmId)
+	serviceFilePath := filepath.Join(SystemDDirectory, serviceName)
+	s.logger.Info("Installing unit", sharePath, vmId, logLevel, extraArgs, forceOverwrite, serviceName, serviceFilePath)
+
 	if _, err := os.Stat(sharePath); err != nil {
 		return "", err
 	}
@@ -79,8 +97,6 @@ func (s *ServiceManager) Install(sharePath string, vmId int, logLevel string, ex
 		ExtraArgs: extraArgs,
 	}
 
-	serviceName := getServiceName(sharePath, vmId)
-	serviceFilePath := filepath.Join(SystemDDirectory, serviceName)
 	if !forceOverwrite {
 		if _, err := os.Stat(serviceFilePath); err == nil {
 			return "", fmt.Errorf("service unit file '%s' alread exists", serviceFilePath)
@@ -97,76 +113,113 @@ func (s *ServiceManager) Install(sharePath string, vmId int, logLevel string, ex
 		return "", err
 	}
 
+	s.logger.Debug("Created a service file", serviceFilePath)
+
 	if err = s.conn.ReloadContext(context.TODO()); err != nil {
 		return "", err
 	}
+
+	s.logger.Debug("Reloaded systemd context")
 
 	return serviceName, nil
 }
 
 func (s *ServiceManager) Uninstall(sharePath string, vmId int) error {
-	unitPaths, err := s.DisableAndStop(sharePath, vmId)
+	s.logger.Info("Uninstalling service", sharePath, vmId)
+
+	servicePaths, err := s.DisableAndStop(sharePath, vmId)
 	if err != nil {
 		return err
 	}
-	for _, unitPath := range unitPaths {
-		if err := os.Remove(unitPath); err != nil {
+	for _, servicePath := range servicePaths {
+		if err := os.Remove(servicePath); err != nil {
 			return err
 		}
 	}
+
 	if err = s.conn.ReloadContext(context.TODO()); err != nil {
 		return err
 	}
+
+	s.logger.Debug("Reloaded systemd context")
+
 	return nil
 }
 
 func (s *ServiceManager) EnableAndStart(sharePath string, vmId int) ([]string, error) {
-	unitPaths, err := s.ListServices(sharePath, vmId)
+	s.logger.Info("Enable and start service", sharePath, vmId)
+
+	servicePaths, err := s.ListServices(sharePath, vmId)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(unitPaths) == 0 {
+	if len(servicePaths) == 0 {
 		return nil, fmt.Errorf("no services found matching '%s'", getServiceName(sharePath, vmId))
 	}
 
-	if _, _, err := s.conn.EnableUnitFilesContext(context.TODO(), unitPaths, true, false); err != nil {
+	s.logger.Debug("Enabling services", servicePaths)
+
+	if _, _, err := s.conn.EnableUnitFilesContext(context.TODO(), servicePaths, true, false); err != nil {
 		return nil, err
 	}
 
-	for _, unitPath := range unitPaths {
-		serviceName := filepath.Base(unitPath)
+	for _, servicePath := range servicePaths {
+		serviceName := filepath.Base(servicePath)
+
+		s.logger.Debug("Starting service", serviceName)
+
 		startChan := make(chan string)
-		s.conn.StartUnitContext(context.TODO(), serviceName, "replace", startChan)
+		if _, err := s.conn.StartUnitContext(context.TODO(), serviceName, "replace", startChan); err != nil {
+			return nil, err
+		}
 		msg := <-startChan
 		if msg != "done" {
 			return nil, fmt.Errorf("cannot start '%s' (status: %q)", serviceName, msg)
 		}
+
+		s.logger.Debug("Service started", serviceName)
 	}
 
-	return unitPaths, nil
+	return servicePaths, nil
 }
 
 func (s *ServiceManager) DisableAndStop(sharePath string, vmId int) ([]string, error) {
-	unitPaths, err := s.ListServices(sharePath, vmId)
+	s.logger.Info("Disable and stop service", sharePath, vmId)
+
+	servicePaths, err := s.ListServices(sharePath, vmId)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(unitPaths) == 0 {
+	if len(servicePaths) == 0 {
 		return nil, fmt.Errorf("no services found matching '%s'", getServiceName(sharePath, vmId))
 	}
 
-	units := []string{}
-	for _, unitPath := range unitPaths {
-		unitName := filepath.Base(unitPath)
-		if _, err = s.conn.StopUnitContext(context.TODO(), unitName, "replace", nil); err != nil {
+	services := []string{}
+	for _, servicePath := range servicePaths {
+		serviceName := filepath.Base(servicePath)
+		services = append(services, serviceName)
+
+		s.logger.Debug("Stopping service", serviceName)
+
+		stopChan := make(chan string)
+		if _, err = s.conn.StopUnitContext(context.TODO(), serviceName, "replace", stopChan); err != nil {
 			return nil, err
 		}
-		units = append(units, unitName)
+		msg := <-stopChan
+		if msg != "done" {
+			return nil, fmt.Errorf("cannot stop '%s' (status: %q)", serviceName, msg)
+		}
+
+		s.logger.Debug("Service stopped", serviceName)
 	}
-	if _, err := s.conn.DisableUnitFilesContext(context.TODO(), units, true); err != nil {
+
+	s.logger.Debug("Disabling services", services)
+
+	if _, err := s.conn.DisableUnitFilesContext(context.TODO(), services, true); err != nil {
 		return nil, err
 	}
-	return unitPaths, nil
+
+	return servicePaths, nil
 }

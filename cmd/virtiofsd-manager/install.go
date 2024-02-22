@@ -7,6 +7,8 @@ import (
 )
 
 type InstallCmd struct {
+	verboseMixin
+
 	SharePath      string `long:"path"       short:"p" required:"true" description:"Path to a directory that needs to be shared."`
 	VmId           int    `long:"vm_id"      short:"i" required:"true" description:"VM ID to share the directory with."`
 	ForceOverwrite bool   `long:"force"      short:"f"                 description:"Force overwrite existing service unit file."`
@@ -15,7 +17,7 @@ type InstallCmd struct {
 }
 
 func (cmd *InstallCmd) Execute(args []string) error {
-	s, err := virtiofsdmanager.CreateServiceManager()
+	s, err := virtiofsdmanager.CreateServiceManager(cmd.Verbose)
 	if err != nil {
 		return err
 	}

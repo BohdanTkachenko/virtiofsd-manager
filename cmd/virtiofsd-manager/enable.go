@@ -5,11 +5,13 @@ import (
 )
 
 type EnableCmd struct {
+	verboseMixin
+
 	VmId int `long:"vm_id" short:"i" required:"true" description:"ID of VM to enable and start services for."`
 }
 
 func (cmd *EnableCmd) Execute(args []string) error {
-	s, err := virtiofsdmanager.CreateServiceManager()
+	s, err := virtiofsdmanager.CreateServiceManager(cmd.Verbose)
 	if err != nil {
 		return err
 	}
